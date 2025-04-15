@@ -114,7 +114,45 @@ def get_syllabus_for_semester(sem):
 
 def get_timetable_for_section(section):
     df = timetable_a_df if section == 'A' else timetable_b_df if section == 'B' else None
-    return f"<b>Timetable for Section {section}:</b><br><br>{df.to_html(index=False, border=1)}" if df is not None else "No timetable data found."
+    if df is None:
+        return "No timetable data found."
+
+    df = df.fillna('')
+    subject_colors = {
+        "CSD3251": "#f0e68c", "CSDX631": "#add8e6",
+        "SSDX11": "#98fb98", "SSDX12": "#98fb98", "SSDX13": "#98fb98", "SSDX14": "#98fb98",
+        "CSDX626": "#87ceeb", "CSDX627": "#87ceeb",
+        "CSD631": "#afeeee", "CSD3252": "#dda0dd", "OPEN ELECTIVE": "#f5deb3"
+    }
+
+    venue_codes = {"LS002", "LS003", "LS004", "ES303"}
+
+    styled_df = df.copy()
+    last_subject_colors = ["" for _ in df.columns]
+
+    for i, row in df.iterrows():
+        for j, cell in enumerate(row):
+            if not cell:
+                styled_df.iat[i, j] = ''
+                continue
+
+            parts = [p.strip() for p in str(cell).split('/')]
+            styled_parts = []
+
+            for part in parts:
+                # Inherit color if it's a venue
+                if part in venue_codes:
+                    color = last_subject_colors[j] or "#ffffff"
+                else:
+                    color = subject_colors.get(part, "#ffffff")
+                    last_subject_colors[j] = color  # update last subject
+
+                styled_parts.append(f'<div style="background-color: {color}; padding: 4px;">{part}</div>')
+
+            styled_df.iat[i, j] = ''.join(styled_parts)
+
+    html_table = styled_df.to_html(index=False, border=1, classes="timetable-table", escape=False)
+    return f"<b>Timetable for Section {section}:</b><br><br>{html_table}"
 
 def get_cgpa_arrears(rrn):
     student = cgpa_arrear_df[cgpa_arrear_df['RRN'].astype(str) == str(rrn)]
