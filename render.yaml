@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: college-chatbot
+    env: python
+    plan: free
+    region: oregon  # or virginia if that's what you selected
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    runtime: python3
+    autoDeploy: true
+    envVars:
+      - key: EXCEL_FILE_PATH
+        value: STUDENTS_DATA_AI_DS.xlsx
