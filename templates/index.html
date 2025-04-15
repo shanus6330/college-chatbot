@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>College Chatbot</title>
+    <script>
+        async function sendMessage() {
+            const userInput = document.getElementById("user-input").value;
+            try {
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: userInput })
+                });
+                // Convert the JSON response
+                const result = await response.json();
+                // Append user and bot messages to the chat-area
+                document.getElementById("chat-area").innerHTML += `<p><strong>You:</strong> ${userInput}</p>`;
+                document.getElementById("chat-area").innerHTML += `<p><strong>Bot:</strong> ${result.response}</p>`;
+                document.getElementById("user-input").value = "";
+            } catch (error) {
+                console.error("Error fetching /chat:", error);
+                alert("An error occurred while contacting the server.");
+            }
+        }
+    </script>
+</head>
+<body>
+    <h2>College Chatbot</h2>
+    <div id="chat-area" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
+    <input type="text" id="user-input" placeholder="Ask something...">
+    <button onclick="sendMessage()">Send</button>
+</body>
+</html>
