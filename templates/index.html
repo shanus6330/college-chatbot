@@ -83,7 +83,11 @@
             const question = document.getElementById('question').value;
             const responseDiv = document.getElementById('response');
 
-            fetch('http://127.0.0.1:5000/ask', {
+            const backendURL = window.location.hostname === "localhost"
+                ? "http://127.0.0.1:5000/ask"
+                : "https://college-chatbot-www7.onrender.com/ask";
+
+            fetch(backendURL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,7 +98,6 @@
             .then(data => {
                 let result = data.response;
 
-                // If it's an HTML table (for syllabus/timetable), inject as HTML
                 if (typeof result === 'string' && result.includes('<table')) {
                     responseDiv.innerHTML = result;
                 } else {
