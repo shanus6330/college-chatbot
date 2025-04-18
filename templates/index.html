@@ -1,114 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>College Chatbot</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f4f4f4;
-        }
-        .container {
-            max-width: 700px;
-            margin: auto;
-            background: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #333;
-        }
-        textarea {
-            width: 100%;
-            height: 80px;
-            padding: 10px;
-            font-size: 16px;
-            resize: none;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #004c99;
-        }
-        #response {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e9f5ff;
-            border-left: 5px solid #3399ff;
-            white-space: pre-wrap;
-            overflow-x: auto;
-        }
-        .syllabus-table, .syllabus-table th, .syllabus-table td {
-            border: 1px solid #ccc;
-            border-collapse: collapse;
-            padding: 8px;
-            text-align: left;
-        }
-        .syllabus-table th {
-            background-color: #f0f8ff;
-        }
-        .timetable-table, .timetable-table th, .timetable-table td,
-        .syllabus-table, .syllabus-table th, .syllabus-table td {
-            border: 1px solid #ccc;
-            border-collapse: collapse;
-            padding: 8px;
-            text-align: center;
-       }
-       .timetable-table th, .syllabus-table th {
-            background-color: #f0f8ff;
-       }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Campus Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(to bottom right, #003973, #E5E5BE);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .chat-container {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .chat-container h1 {
+      font-size: 1.8rem;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      resize: none;
+      margin-bottom: 15px;
+      font-size: 1rem;
+      transition: border 0.3s;
+    }
+
+    textarea:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+
+    button {
+      background: linear-gradient(135deg, #007bff, #00d4ff);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 30px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.3s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(135deg, #0056b3, #0099cc);
+    }
+
+    .response-box {
+      margin-top: 15px;
+      background: #f1faff;
+      padding: 15px;
+      border-radius: 12px;
+      min-height: 50px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      text-align: left;
+    }
+
+    .typing {
+      display: inline-block;
+    }
+
+    .typing span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin: 0 2px;
+      background: #007bff;
+      border-radius: 50%;
+      animation: blink 1.4s infinite both;
+    }
+
+    .typing span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .typing span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes blink {
+      0%, 80%, 100% {
+        opacity: 0;
+      }
+      40% {
+        opacity: 1;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>College Info Chatbot</h2>
-        <textarea id="question" placeholder="Ask me about student details, attendance, results, timetable, syllabus..."></textarea>
-        <button onclick="askQuestion()">Ask</button>
-        <div id="response"></div>
-    </div>
+  <div class="chat-container">
+    <h1>🎓 Smart Campus Chatbot</h1>
+    <form id="chat-form">
+      <textarea id="question" placeholder="Ask me about Student/Parent info,SGPA, CGPA,Syllabus or Timetable"></textarea>
+      <button type="submit">Ask</button>
+    </form>
+    <div class="response-box" id="response"></div>
+  </div>
 
-    <script>
-        function askQuestion() {
-            const question = document.getElementById('question').value;
-            const responseDiv = document.getElementById('response');
+  <script>
+    document.getElementById('chat-form').addEventListener('submit', function (e) {
+      e.preventDefault(); // Prevent form from reloading the page
+      askQuestion();
+    });
 
-            const backendURL = window.location.hostname === "localhost"
-                ? "http://127.0.0.1:5000/ask"
-                : "https://college-chatbot-www7.onrender.com/ask";
+    function askQuestion() {
+      const question = document.getElementById('question').value;
+      const responseDiv = document.getElementById('response');
 
-            fetch(backendURL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ question: question })
-            })
-            .then(res => res.json())
-            .then(data => {
-                let result = data.response;
+      // Show typing indicator
+      responseDiv.innerHTML = `<div class="typing">
+        <span></span><span></span><span></span>
+      </div>`;
 
-                if (typeof result === 'string' && result.includes('<table')) {
-                    responseDiv.innerHTML = result;
-                } else {
-                    responseDiv.innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
-                }
-            })
-            .catch(err => {
-                responseDiv.innerHTML = '<span style="color:red;">Error contacting the backend.</span>';
-                console.error(err);
-            });
+      fetch('/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: question })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const result = data.response;
+
+        if (typeof result === 'string' && result.includes('<table')) {
+          responseDiv.innerHTML = result;  // render HTML tables (syllabus, timetable)
+        } else {
+          responseDiv.innerHTML = '<pre>' + result + '</pre>';  // formatted plain text response
         }
-    </script>
+      })
+      .catch(err => {
+        responseDiv.innerHTML = '<span style="color:red;">Error contacting the backend.</span>';
+        console.error(err);
+      });
+    }
+  </script>
 </body>
 </html>

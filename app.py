@@ -140,12 +140,11 @@ def get_timetable_for_section(section):
             styled_parts = []
 
             for part in parts:
-                # Inherit color if it's a venue
                 if part in venue_codes:
                     color = last_subject_colors[j] or "#ffffff"
                 else:
                     color = subject_colors.get(part, "#ffffff")
-                    last_subject_colors[j] = color  # update last subject
+                    last_subject_colors[j] = color
 
                 styled_parts.append(f'<div style="background-color: {color}; padding: 4px;">{part}</div>')
 
@@ -181,6 +180,28 @@ def get_sgpa(rrn, semester):
         }
     return {"response": f"SGPA for semester {semester} not found for RRN {rrn}."}
 
+# === Response Formatter ===
+def format_response_data(response):
+    if isinstance(response, dict):
+        if any(isinstance(v, dict) for v in response.values()):
+            formatted = ""
+            for key, val in response.items():
+                key_clean = key.replace('_', ' ').upper()
+                if isinstance(val, dict):
+                    formatted += f"\n{key_clean}:\n"
+                    for sub_key, sub_val in val.items():
+                        sub_key_clean = sub_key.replace('_', ' ').upper()
+                        formatted += f"  {sub_key_clean}: {sub_val}\n"
+                else:
+                    formatted += f"{key_clean}: {val}\n"
+            return formatted.strip()
+        else:
+            return '\n'.join([f"{k.replace('_', ' ').upper()}: {v}" for k, v in response.items()])
+    elif isinstance(response, str):
+        return response
+    else:
+        return str(response)
+
 # === Main Chat Route ===
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -214,7 +235,8 @@ def ask():
     else:
         response = {"response": "Sorry, I couldn't understand your question."}
 
-    return jsonify({'response': response})
+    formatted_response = format_response_data(response)
+    return jsonify({'response': formatted_response})
 
 if __name__ == '__main__':
     app.run(debug=True)
