@@ -116,7 +116,7 @@
   <div class="chat-container">
     <h1>🎓 Smart Campus Chatbot</h1>
     <form id="chat-form">
-      <textarea id="question" placeholder="Ask me about Student/Parent info,SGPA, CGPA,Syllabus or Timetable"></textarea>
+      <textarea id="question" placeholder="Ask me about Student/Parent info, SGPA, CGPA, Syllabus, or Timetable"></textarea>
       <button type="submit">Ask</button>
     </form>
     <div class="response-box" id="response"></div>
@@ -129,8 +129,13 @@
     });
 
     function askQuestion() {
-      const question = document.getElementById('question').value;
+      const question = document.getElementById('question').value.trim();  // Added trim() to remove leading/trailing spaces
       const responseDiv = document.getElementById('response');
+
+      if (!question) {  // Check if the question is empty
+        responseDiv.innerHTML = '<span style="color:red;">Please enter a question.</span>';
+        return;
+      }
 
       // Show typing indicator
       responseDiv.innerHTML = `<div class="typing">

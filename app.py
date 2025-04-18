@@ -19,10 +19,8 @@ try:
     timetable_b_df = pd.read_excel(file_path, sheet_name='TIMETABLE_AI_DS_B')
     cgpa_arrear_df = pd.read_excel(file_path, sheet_name='CGPA_AND_ARREAR_INFO')
 
-    # Clean headers
     for df in [students_df, parent_info_df, attendance_df, result_df, syllabus_df, timetable_a_df, timetable_b_df, cgpa_arrear_df]:
         df.columns = df.columns.str.strip().str.upper()
-
 except FileNotFoundError:
     print("❌ Excel file not found. Please check the path.")
     exit()
@@ -31,7 +29,6 @@ except FileNotFoundError:
 def home():
     return render_template('index.html')
 
-# === Utility extractors ===
 def extract_rrn_from_question(question):
     match = re.search(r'\b\d{12}\b', question)
     return match.group(0) if match else None
@@ -47,7 +44,6 @@ def extract_section(question):
         return 'B'
     return None
 
-# === Info fetchers ===
 def get_student_info(rrn):
     student = students_df[students_df['RRN'].astype(str) == str(rrn)]
     if not student.empty:
@@ -81,32 +77,20 @@ def get_attendance(rrn):
         }
     return {"response": "Attendance not found for the provided RRN."}
 
+# ✅ Updated get_result() based on your sheet structure (no semester logic)
 def get_result(rrn, semester=None):
     student = result_df[result_df['RRN'].astype(str) == str(rrn)]
     if student.empty:
         return {"response": "Result not found for the provided RRN."}
-    
-    if semester:
-        sem_data = student[student['SEMESTER'] == semester]
-        if sem_data.empty:
-            return {"response": f"Result not found for Semester {semester}."}
-        row = sem_data.iloc[0]
-        return {
-            "Student Name": row.get('NAME_OF_STUDENT', 'N/A'),
-            "RRN": rrn,
-            f"Semester {semester} Result": row.drop(labels=['RRN', 'NAME_OF_STUDENT', 'SEMESTER']).to_dict()
-        }
-    else:
-        all_sem_results = {}
-        grouped = student.groupby('SEMESTER')
-        for sem, group in grouped:
-            row = group.iloc[0]
-            all_sem_results[f"Semester {sem}"] = row.drop(labels=['RRN', 'NAME_OF_STUDENT', 'SEMESTER']).to_dict()
-        return {
-            "Student Name": student.iloc[0].get('NAME_OF_STUDENT', 'N/A'),
-            "RRN": rrn,
-            "All Semester Results": all_sem_results
-        }
+
+    row = student.iloc[0]
+    result_data = row.drop(labels=['RRN', 'NAME OF STUDENT']).to_dict()
+
+    return {
+        "Student Name": row.get('NAME OF STUDENT', 'N/A'),
+        "RRN": rrn,
+        "Subject-wise Marks": result_data
+    }
 
 def get_syllabus_for_semester(sem):
     data = syllabus_df[syllabus_df['SEMESTER'] == sem]
@@ -124,7 +108,6 @@ def get_timetable_for_section(section):
         "CSDX626": "#87ceeb", "CSDX627": "#87ceeb",
         "CSD631": "#afeeee", "CSD3252": "#dda0dd", "OPEN ELECTIVE": "#f5deb3"
     }
-
     venue_codes = {"LS002", "LS003", "LS004", "ES303"}
 
     styled_df = df.copy()
@@ -180,7 +163,6 @@ def get_sgpa(rrn, semester):
         }
     return {"response": f"SGPA for semester {semester} not found for RRN {rrn}."}
 
-# === Response Formatter ===
 def format_response_data(response):
     if isinstance(response, dict):
         if any(isinstance(v, dict) for v in response.values()):
@@ -202,7 +184,6 @@ def format_response_data(response):
     else:
         return str(response)
 
-# === Main Chat Route ===
 @app.route('/ask', methods=['POST'])
 def ask():
     data = request.get_json()
@@ -216,8 +197,7 @@ def ask():
         elif "attendance" in question:
             response = get_attendance(rrn)
         elif "result" in question or "marks" in question:
-            semester = extract_semester(question)
-            response = get_result(rrn, semester)
+            response = get_result(rrn)
         elif "student" in question:
             response = get_student_info(rrn)
         elif "parent" in question:
