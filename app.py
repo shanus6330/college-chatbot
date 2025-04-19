@@ -10,17 +10,30 @@ CORS(app)
 file_path = 'STUDENTS_DATA_AI_DS.xlsx'
 
 try:
+    # Load all required sheets
     students_df = pd.read_excel(file_path, sheet_name='STUDENTS_INFO')
     parent_info_df = pd.read_excel(file_path, sheet_name='PARENT_INFO')
     attendance_df = pd.read_excel(file_path, sheet_name='ATTENDANCE_INFO')
-    result_df = pd.read_excel(file_path, sheet_name='RESULTS_INFO')
+    result_sem1_df = pd.read_excel(file_path, sheet_name='RESULTS_SEM1_INFO')
+    result_sem2_df = pd.read_excel(file_path, sheet_name='RESULTS_SEM2_INFO')
+    result_sem3_df = pd.read_excel(file_path, sheet_name='RESULTS_SEM3_INFO')
+    result_sem4_df = pd.read_excel(file_path, sheet_name='RESULTS_SEM4_INFO')
+    result_sem5_df = pd.read_excel(file_path, sheet_name='RESULTS_SEM5_INFO')
     syllabus_df = pd.read_excel(file_path, sheet_name='SYLLABUS_INFO')
     timetable_a_df = pd.read_excel(file_path, sheet_name='TIMETABLE_AI_DS_A')
     timetable_b_df = pd.read_excel(file_path, sheet_name='TIMETABLE_AI_DS_B')
     cgpa_arrear_df = pd.read_excel(file_path, sheet_name='CGPA_AND_ARREAR_INFO')
 
-    for df in [students_df, parent_info_df, attendance_df, result_df, syllabus_df, timetable_a_df, timetable_b_df, cgpa_arrear_df]:
-        df.columns = df.columns.str.strip().str.upper()
+    # Standardize column names across all sheets
+    all_dfs = [
+        students_df, parent_info_df, attendance_df,
+        result_sem1_df, result_sem2_df, result_sem3_df,
+        result_sem4_df, result_sem5_df, syllabus_df,
+        timetable_a_df, timetable_b_df, cgpa_arrear_df
+    ]
+    for df in all_dfs:
+        df.columns = df.columns.str.strip().str.upper().str.replace(' ', '_')
+
 except FileNotFoundError:
     print("❌ Excel file not found. Please check the path.")
     exit()
@@ -29,6 +42,7 @@ except FileNotFoundError:
 def home():
     return render_template('index.html')
 
+# Utility extractors
 def extract_rrn_from_question(question):
     match = re.search(r'\b\d{12}\b', question)
     return match.group(0) if match else None
@@ -44,12 +58,13 @@ def extract_section(question):
         return 'B'
     return None
 
+# Info fetchers
 def get_student_info(rrn):
     student = students_df[students_df['RRN'].astype(str) == str(rrn)]
     if not student.empty:
         row = student.iloc[0]
         return {
-            "Student Name": row['NAME OF STUDENT'],
+            "Student Name": row['NAME_OF_STUDENT'],
             "RRN": rrn,
             "Student Info": row.drop(labels=['RRN']).to_dict()
         }
@@ -60,7 +75,7 @@ def get_parent_info(rrn):
     if not parent.empty:
         row = parent.iloc[0]
         return {
-            "Student Name": row['NAME OF STUDENT'],
+            "Student Name": row['NAME_OF_STUDENT'],
             "RRN": rrn,
             "Parent Info": row.drop(labels=['RRN']).to_dict()
         }
@@ -77,19 +92,27 @@ def get_attendance(rrn):
         }
     return {"response": "Attendance not found for the provided RRN."}
 
-# ✅ Updated get_result() based on your sheet structure (no semester logic)
 def get_result(rrn, semester=None):
-    student = result_df[result_df['RRN'].astype(str) == str(rrn)]
+    sem_df_map = {
+        1: result_sem1_df,
+        2: result_sem2_df,
+        3: result_sem3_df,
+        4: result_sem4_df,
+        5: result_sem5_df
+    }
+    if semester not in sem_df_map:
+        return {"response": "Invalid semester. Please specify a valid semester number."}
+    
+    df = sem_df_map[semester]
+    student = df[df['RRN'].astype(str) == str(rrn)]
     if student.empty:
         return {"response": "Result not found for the provided RRN."}
-
+    
     row = student.iloc[0]
-    result_data = row.drop(labels=['RRN', 'NAME OF STUDENT']).to_dict()
-
     return {
-        "Student Name": row.get('NAME OF STUDENT', 'N/A'),
+        "Student Name": row.get('NAME_OF_STUDENT', 'N/A'),
         "RRN": rrn,
-        "Subject-wise Marks": result_data
+        f"Semester {semester} Result": row.drop(labels=['RRN', 'NAME_OF_STUDENT']).to_dict()
     }
 
 def get_syllabus_for_semester(sem):
@@ -109,7 +132,6 @@ def get_timetable_for_section(section):
         "CSD631": "#afeeee", "CSD3252": "#dda0dd", "OPEN ELECTIVE": "#f5deb3"
     }
     venue_codes = {"LS002", "LS003", "LS004", "ES303"}
-
     styled_df = df.copy()
     last_subject_colors = ["" for _ in df.columns]
 
@@ -133,15 +155,14 @@ def get_timetable_for_section(section):
 
             styled_df.iat[i, j] = ''.join(styled_parts)
 
-    html_table = styled_df.to_html(index=False, border=1, classes="timetable-table", escape=False)
-    return f"<b>Timetable for Section {section}:</b><br><br>{html_table}"
+    return f"<b>Timetable for Section {section}:</b><br><br>" + styled_df.to_html(index=False, border=1, classes="timetable-table", escape=False)
 
 def get_cgpa_arrears(rrn):
     student = cgpa_arrear_df[cgpa_arrear_df['RRN'].astype(str) == str(rrn)]
     if not student.empty:
         row = student.iloc[0]
         return {
-            "Student Name": row.get('NAME OF STUDENT', 'N/A'),
+            "Student Name": row.get('NAME_OF_STUDENT', 'N/A'),
             "RRN": rrn,
             "CGPA": row.get('CGPA', 'N/A'),
             "Number of Arrears": int(row.get('NUMBER_OF_ARREARS', 0)),
@@ -154,36 +175,35 @@ def get_sgpa(rrn, semester):
     student = cgpa_arrear_df[cgpa_arrear_df['RRN'].astype(str) == str(rrn)]
     if not student.empty and column in cgpa_arrear_df.columns:
         row = student.iloc[0]
-        sgpa = row.get(column, 'N/A')
         return {
-            "Student Name": row.get('NAME OF STUDENT', 'N/A'),
+            "Student Name": row.get('NAME_OF_STUDENT', 'N/A'),
             "RRN": rrn,
             "Semester": semester,
-            "SGPA": sgpa
+            "SGPA": row.get(column, 'N/A')
         }
     return {"response": f"SGPA for semester {semester} not found for RRN {rrn}."}
 
+# Format response
 def format_response_data(response):
     if isinstance(response, dict):
         if any(isinstance(v, dict) for v in response.values()):
             formatted = ""
             for key, val in response.items():
-                key_clean = key.replace('_', ' ').upper()
                 if isinstance(val, dict):
-                    formatted += f"\n{key_clean}:\n"
+                    formatted += f"\n{key}:\n"
                     for sub_key, sub_val in val.items():
-                        sub_key_clean = sub_key.replace('_', ' ').upper()
-                        formatted += f"  {sub_key_clean}: {sub_val}\n"
+                        formatted += f"  {sub_key}: {sub_val}\n"
                 else:
-                    formatted += f"{key_clean}: {val}\n"
+                    formatted += f"{key}: {val}\n"
             return formatted.strip()
         else:
-            return '\n'.join([f"{k.replace('_', ' ').upper()}: {v}" for k, v in response.items()])
+            return '\n'.join([f"{k}: {v}" for k, v in response.items()])
     elif isinstance(response, str):
         return response
     else:
         return str(response)
 
+# Chat route
 @app.route('/ask', methods=['POST'])
 def ask():
     data = request.get_json()
@@ -197,7 +217,8 @@ def ask():
         elif "attendance" in question:
             response = get_attendance(rrn)
         elif "result" in question or "marks" in question:
-            response = get_result(rrn)
+            semester = extract_semester(question)
+            response = get_result(rrn, semester)
         elif "student" in question:
             response = get_student_info(rrn)
         elif "parent" in question:
@@ -215,8 +236,7 @@ def ask():
     else:
         response = {"response": "Sorry, I couldn't understand your question."}
 
-    formatted_response = format_response_data(response)
-    return jsonify({'response': formatted_response})
+    return jsonify({'response': format_response_data(response)})
 
 if __name__ == '__main__':
     app.run(debug=True)
