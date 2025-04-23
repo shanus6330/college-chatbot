@@ -34,6 +34,9 @@ try:
     for df in all_dfs:
         df.columns = df.columns.str.strip().str.upper().str.replace(' ', '_')
 
+    # Normalize SUBJECT_CODE in syllabus_df for safe matching
+    syllabus_df['SUBJECT_CODE'] = syllabus_df['SUBJECT_CODE'].astype(str).str.strip().str.upper()
+
 except FileNotFoundError:
     print("❌ Excel file not found. Please check the path.")
     exit()
@@ -58,6 +61,10 @@ def extract_section(question):
         return 'B'
     return None
 
+def extract_subject_code(question):
+    match = re.search(r'[A-Z]{3,}\d{3,}', question.upper())
+    return match.group(0) if match else None
+
 # Info fetchers
 def get_student_info(rrn):
     student = students_df[students_df['RRN'].astype(str) == str(rrn)]
@@ -81,15 +88,33 @@ def get_parent_info(rrn):
         }
     return {"response": "Parent info not found for the provided RRN."}
 
-def get_attendance(rrn):
+def get_attendance(rrn, subject_code=None):
     student = attendance_df[attendance_df['RRN'].astype(str) == str(rrn)]
     if not student.empty:
         row = student.iloc[0]
+        full_attendance = row.drop(labels=['RRN', 'NAME_OF_STUDENT']).to_dict()
+
+        if subject_code:
+            filtered = {k: v for k, v in full_attendance.items() if subject_code in k}
+            if filtered:
+                return {
+                    "Student Name": row['NAME_OF_STUDENT'],
+                    "RRN": rrn,
+                    f"Attendance for {subject_code}": filtered
+                }
+            else:
+                return {
+                    "Student Name": row['NAME_OF_STUDENT'],
+                    "RRN": rrn,
+                    "response": f"No attendance data found for subject code {subject_code}."
+                }
+
         return {
             "Student Name": row['NAME_OF_STUDENT'],
             "RRN": rrn,
-            "Attendance": row.drop(labels=['RRN', 'NAME_OF_STUDENT']).to_dict()
+            "Attendance": full_attendance
         }
+
     return {"response": "Attendance not found for the provided RRN."}
 
 def get_result(rrn, semester=None):
@@ -102,12 +127,12 @@ def get_result(rrn, semester=None):
     }
     if semester not in sem_df_map:
         return {"response": "Invalid semester. Please specify a valid semester number."}
-    
+
     df = sem_df_map[semester]
     student = df[df['RRN'].astype(str) == str(rrn)]
     if student.empty:
         return {"response": "Result not found for the provided RRN."}
-    
+
     row = student.iloc[0]
     return {
         "Student Name": row.get('NAME_OF_STUDENT', 'N/A'),
@@ -116,8 +141,37 @@ def get_result(rrn, semester=None):
     }
 
 def get_syllabus_for_semester(sem):
-    data = syllabus_df[syllabus_df['SEMESTER'] == sem]
-    return data.to_html(index=False, border=1, classes="syllabus-table") if not data.empty else f"No syllabus data found for semester {sem}."
+    data = syllabus_df[syllabus_df['SEMESTER'] == sem].copy()
+
+    if data.empty:
+        return f"No syllabus data found for semester {sem}."
+
+    def linkify(row):
+        if 'SUBJECT_CODE' in row and 'SYLLABUS_IMAGE_LINK' in row:
+            subject = row['SUBJECT_CODE']
+            link = row['SYLLABUS_IMAGE_LINK']
+            if pd.notna(link):
+                row['SUBJECT_CODE'] = f'<a href="{link}" target="_blank">{subject}</a>'
+        return row
+
+    data = data.apply(linkify, axis=1)
+
+    if 'SYLLABUS_IMAGE_LINK' in data.columns:
+        data.drop(columns=['SYLLABUS_IMAGE_LINK'], inplace=True)
+
+    return data.to_html(index=False, border=1, escape=False, classes="syllabus-table")
+
+def get_syllabus_image(subject_code):
+    matched_row = syllabus_df[syllabus_df['SUBJECT_CODE'] == subject_code.upper()]
+    if not matched_row.empty:
+        link = matched_row.iloc[0].get('SYLLABUS_IMAGE_LINK')
+        if pd.notna(link):
+            return {
+                "response": f'<a href="{link}" target="_blank"><img src="{link}" style="max-width:100%;height:auto;" alt="Syllabus Image for {subject_code}"></a>'
+            }
+        else:
+            return {"response": f"No syllabus image link found for course {subject_code}."}
+    return {"response": f"No syllabus found for subject code {subject_code}."}
 
 def get_timetable_for_section(section):
     df = timetable_a_df if section == 'A' else timetable_b_df if section == 'B' else None
@@ -209,13 +263,14 @@ def ask():
     data = request.get_json()
     question = data.get('question', '').lower()
     rrn = extract_rrn_from_question(question)
+    subject_code = extract_subject_code(question)
 
     if rrn:
         if "sgpa" in question:
             semester = extract_semester(question)
             response = get_sgpa(rrn, semester) if semester else {"response": "Please specify semester number for SGPA."}
         elif "attendance" in question:
-            response = get_attendance(rrn)
+            response = get_attendance(rrn, subject_code)
         elif "result" in question or "marks" in question:
             semester = extract_semester(question)
             response = get_result(rrn, semester)
@@ -227,6 +282,8 @@ def ask():
             response = get_cgpa_arrears(rrn)
         else:
             response = {"response": "Please ask about SGPA, CGPA, attendance, result, or parent info."}
+    elif "syllabus" in question and subject_code:
+        response = get_syllabus_image(subject_code)
     elif "syllabus" in question:
         semester = extract_semester(question)
         response = get_syllabus_for_semester(semester) if semester else {"response": "Please specify a semester number."}
